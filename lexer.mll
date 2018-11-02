@@ -30,7 +30,17 @@
    * Miejsce na nazwane wyrażenia regularne
    *)
 
+  let whitespace = [' ' '\t']+
+  let relop = "<=" | ">=" | '<' | '>' | "==" | "!="
+  let binop = '+' | '-' | '/' | '&' | '|' | '%'
+  let unop = '-' | '!'
+  let digit = ['0' - '9']
+  let number = digit | ['1' - '9'] digit*
+  let char = '\'' _ '\''
+  (* tu ^ dodac jakos te \n i inne "znaki" *)
+
   let identifier    = ['a'-'z' '_' 'A' - 'Z']['_' 'A' - 'Z' 'a'-'z' '0'-'9']*
+
   
   (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
      ----------------------------------------------------------------------------- *)
@@ -50,16 +60,42 @@
 
       | eof { EOF }
 
-      (* vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv 
-       * Miejsce na twoje reguły
-       *)
+      | whitespace { token lexbuf }
+
       | "int" { INT }
       | "bool" { BOOL }
+      | "while" { WHILE }
+      | "if" { IF }
+      | "else" { ELSE }
+
+      | relop as rop
+      { RELOP rop }
+
+      | binop as bop
+      { BINOP bop }
+
+(* hmmm  gdzies tu jakis stan pomocniczy bo trzeba odroznic -x od x - y :| *)
+      | unop as uop 
+      { UNOP uop }
+
+      | "[" {LEFT_SQUARE}
+      | "]" {RIGHT_SQUARE}
+
+      | "{" { LEFT_BRA}
+      | "}" { RIGHT_BRA}
+
       | "(" { LEFT_PAR }
       | ")" { RIGHT_PAR }
+
       | ":" { COLON }
       | "," { COMMA }
 
+      | char as c
+      { CHAR c }
+      
+      | number as num
+      { INT num }
+      
       | identifier as id
       { IDENTIFIER id }
 
