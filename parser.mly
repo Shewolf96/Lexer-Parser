@@ -38,6 +38,9 @@ let mkTag =
 %token <char.t> CHAR
 %token IF ELSE WHILE
 %token <char.t>BINOP <string>RELOP <char.t>UNOP
+%token ASSIGN
+%token WHILE IF ELSE
+%token RET
 
 
 (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -63,7 +66,7 @@ rev_global_declarations:
   { [] }
 
 global_declaration:
-    | i = identifier ; LEFT_PAR ; var_list = var_declarations ; RIGHT_PAR ; ret = return_option; body = body_option
+    | i = identifier ; LEFT_PAR ; var_list = var_declarations ; RIGHT_PAR ; ret = return_option ; body = body_option
     { GDECL_Function 
         { loc = mkLocation $startpos
         ; id = i
@@ -77,13 +80,13 @@ global_declaration:
 (*____________________v_________________________*)
 
 return_option:
-    | COLON ; ret_types = type_list
+    | COLON ; ret_types = List.rev rev_type_list
     { Some ret_types }
     |
     { None }
 
-type_list:
-    | x = type_expression ; COMA ; tail = type_list (*separated_list(COMMA, type_expression)*)
+rev_type_list:
+    | tail = rev_type_list ; COMA ; x = type_expression (*separated_list(COMMA, type_expression)*)
     { x::tail }
     | x = type_expression
     { [x] }
@@ -92,22 +95,180 @@ type_list:
 
 
 body_option:
-  | body = statement_list
+  | body = statement_block
   { Some body }
   |
   { None }
 
-statement_list:
-  | x = statement ; tail = statement_list
+statement_block:
+  | LEFT_BRA ; statement_list = List.rev rev_statement_list ; RIGHT_BRA
+  { STMTBlock 
+      { loc = mkLocation $startpos
+      ; body = statement_list
+      }
+  }
+  
+rev_statement_list:
+  | tail = rev_statement_list ; x = statement
   { x::tail }
   |
-  { [] }
+  { [] } (* statement list - trzeba gdzies tam sprawdzac czy return byl na koncu *)
+
+(*________________STATEMENT__vvvv________________________*)
+
+statement:
+  | IDENTIFIER as id ; LEFT_PAR ; args = expression_list ; RIGHT_PAR
+  { Call 
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; callee = id
+      ; arguments = args
+      }
+  }
+
+  | c = call
+  { c }
+
+(* tak bym chciala - to moze dzialac? 
+and call:
+  | IDENTIFIER as id ; LEFT_PAR ; args = expression_list ; RIGHT_PAR
+  { Call 
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; callee = id
+      ; arguments = args
+      }
+  } *)
+
+  | IDENTIFIER as id ; ASSIGN ; expr = expression
+  { STMT_Assign
+      { loc = mkLocation $startpos
+      ; lhs = id
+      ; rhs = expr
+      }
+  }
+
+  | var_decl = var_declaration ; init = var_decl_assing
+  { STMT_VarDecl
+      { var = var_decl
+      ; init = init
+      } 
+  }
+
+  | IF ; c = expression ; e1 = statement ; e2 = else_option ; 
+  { STMT_If
+      { loc = mkLocation $startpos
+      ; cond = c
+      ; then_branch = e1
+      ; else_branch = e2
+      }
+  }
+
+  | WHILE ; c = expression ; s = statement
+  { STMT_While
+      { loc = mkLocation $startpos
+      ; cond = c
+      ; body = s
+      }
+  }
+
+  | RET ; expr_list = expression_list
+  { STMT_Return
+      { loc = mkLocation $startpos
+      ; values = expr_list
+      }
+  }
+
+  | var_list = var_declarations_opt ; ASSIGN ; fcall = fun_call (*napisac raz i uzyc dla STMT_Call tez*)
+  { STMT_MultiVarDecl
+      { loc = mkLocation $startpos
+      ; vars = var_list
+      ; init = fcall
+      }
+  }
+
+  | st_block = statement_block
+  { STMT_Block
+    st_block }
+
+
+
+(*______________STATEMENT ^^^^_________________________*)
+
+
+var_declarations_opt:
+  | [] 
+  { None }
+  | var_list 
+  { Some var_list }
+
+fun_call: 
+
+expression:
+
+  | id = identifier
+  { EXPR_Id
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; id = id
+      }
+  }
+
+  | n = int_expr
+  { EXPR_Int
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; value = n
+      }
+  }
+
+  | c = char_expr
+  { EXPR_Char 
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; value = c
+      }
+  }  
+
+  | s = string_expr
+  { EXPR_String
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; value = s
+      }
+  }
+
+  | e1 = expression ; RELOP as op ; e2 = expression
+  { EXPR_Relation
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; op = op
+      ; lhs = e1
+      ; rhs = e2
+      }
+  }
+
+
+
+
+else_option: ...
+
+var_decl_assing:
+  | ASSIGN ; e = expression
+  { Some e }
+  | 
+  { None }
+
+expression_list: ...
+
+
+
 (*_________________________^_____________________*)
 
 
 var_declarations: 
-  | list = separated_list(COMMA, var_declaration)
-    {list}
+  | var_list = separated_list(COMMA, var_declaration)
+    {var_list}
 
 var_declaration:
   | i = identifier ; COLON ; t = type_expression
@@ -144,11 +305,25 @@ dim_size:
   |
   { None }
 
+
+
+string_expr:
+  | STRING
+  { string $1}
+
+char_expr:
+  | CHAR
+  { char.t $1 }
+
 int_expr: 
+  | INT
+  { int32.t $1 } (*????*)
 
 identifier:
     | IDENTIFIER
     { Identifier $1 }
+
+
 
 (* 
    ** przykład użycia mkLocation 

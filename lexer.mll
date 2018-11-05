@@ -38,6 +38,7 @@
   let number = digit | ['1' - '9'] digit*
   let char = '\'' _ '\''
   (* tu ^ dodac jakos te \n i inne "znaki" *)
+  let string = ???
 
   let identifier    = ['a'-'z' '_' 'A' - 'Z']['_' 'A' - 'Z' 'a'-'z' '0'-'9']*
 
