@@ -33,15 +33,17 @@ let mkTag =
 %token <string>IDENTIFIER
 %token LEFT_PAR RIGHT_PAR LEFT_SQUARE RIGHT_SQUARE LEFT_BRA RIGHT_BRA
 %token COLON COMMA
-%token INT BOOL
-%token <int32.t> INT
-%token <char.t> CHAR
+%token INT_T BOOL_T
+%token <Int32.t> INT
+%token <string>CHAR
 %token IF ELSE WHILE
-%token <char.t>BINOP <string>RELOP <char.t>UNOP
+%token <Char.t>BINOP 
+%token <string>RELOP 
+%token <Char.t>UNOP
 %token ASSIGN
-%token WHILE IF ELSE
 %token RET
-
+%token <string>STRING
+%token UNDERSCORE
 
 (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    ----------------------------------------------------------------------------- *)
@@ -66,7 +68,7 @@ rev_global_declarations:
   { [] }
 
 global_declaration:
-    | i = identifier ; LEFT_PAR ; var_list = var_declarations ; RIGHT_PAR ; ret = return_option ; body = body_option
+    | i = identifier ; LEFT_PAR ; var_list = var_declarations ; RIGHT_PAR ; ret = type_list ; body = body_option
     { GDECL_Function 
         { loc = mkLocation $startpos
         ; id = i
@@ -79,14 +81,12 @@ global_declaration:
 (*____________________v_________________________*)
 (*____________________v_________________________*)
 
-return_option:
-    | COLON ; ret_types = List.rev rev_type_list
-    { Some ret_types }
-    |
-    { None }
+type_list:
+    | l = rev_type_list
+    { List.rev l }
 
 rev_type_list:
-    | tail = rev_type_list ; COMA ; x = type_expression (*separated_list(COMMA, type_expression)*)
+    | tail = rev_type_list ; COMMA ; x = type_expression (*separated_list(COMMA, type_expression)*)
     { x::tail }
     | x = type_expression
     { [x] }
@@ -101,13 +101,17 @@ body_option:
   { None }
 
 statement_block:
-  | LEFT_BRA ; statement_list = List.rev rev_statement_list ; RIGHT_BRA
+  | LEFT_BRA ; statement_list = statement_list ; RIGHT_BRA
   { STMTBlock 
       { loc = mkLocation $startpos
       ; body = statement_list
       }
   }
   
+statement_list:
+    | l = rev_statement_list
+    { List.rev l }
+
 rev_statement_list:
   | tail = rev_statement_list ; x = statement
   { x::tail }
@@ -117,92 +121,82 @@ rev_statement_list:
 (*________________STATEMENT__vvvv________________________*)
 
 statement:
-  | IDENTIFIER as id ; LEFT_PAR ; args = expression_list ; RIGHT_PAR
-  { Call 
-      { tag = mkTag ()
-      ; loc = mkLocation $startpos
-      ; callee = id
-      ; arguments = args
-      }
-  }
+    | c = call
+    { STMT_Call c }
 
-  | c = call
-  { c }
+    | id = identifier ; ASSIGN ; expr = expression
+    { STMT_Assign
+        { loc = mkLocation $startpos
+        ; lhs = id
+        ; rhs = expr
+        }
+    }
 
-(* tak bym chciala - to moze dzialac? 
-and call:
-  | IDENTIFIER as id ; LEFT_PAR ; args = expression_list ; RIGHT_PAR
-  { Call 
-      { tag = mkTag ()
-      ; loc = mkLocation $startpos
-      ; callee = id
-      ; arguments = args
-      }
-  } *)
+    | var_decl = var_declaration ; init = var_decl_assing
+    { STMT_VarDecl
+        { var = var_decl
+        ; init = init
+        } 
+    }
 
-  | IDENTIFIER as id ; ASSIGN ; expr = expression
-  { STMT_Assign
-      { loc = mkLocation $startpos
-      ; lhs = id
-      ; rhs = expr
-      }
-  }
+    | IF ; c = expression ; e1 = statement ; e2 = else_option ; 
+    { STMT_If
+        { loc = mkLocation $startpos
+        ; cond = c
+        ; then_branch = e1
+        ; else_branch = e2
+        }
+    }
 
-  | var_decl = var_declaration ; init = var_decl_assing
-  { STMT_VarDecl
-      { var = var_decl
-      ; init = init
-      } 
-  }
+    | WHILE ; c = expression ; s = statement
+    { STMT_While
+        { loc = mkLocation $startpos
+        ; cond = c
+        ; body = s
+        }
+    }
 
-  | IF ; c = expression ; e1 = statement ; e2 = else_option ; 
-  { STMT_If
-      { loc = mkLocation $startpos
-      ; cond = c
-      ; then_branch = e1
-      ; else_branch = e2
-      }
-  }
+    | RET ; expr_list = expression_list
+    { STMT_Return
+        { loc = mkLocation $startpos
+        ; values = expr_list
+        }
+    }
 
-  | WHILE ; c = expression ; s = statement
-  { STMT_While
-      { loc = mkLocation $startpos
-      ; cond = c
-      ; body = s
-      }
-  }
+    | var_list = var_decl_opt ; ASSIGN ; fcall = call
+    { STMT_MultiVarDecl
+        { loc = mkLocation $startpos
+        ; vars = var_list
+        ; init = fcall
+        }
+    }
 
-  | RET ; expr_list = expression_list
-  { STMT_Return
-      { loc = mkLocation $startpos
-      ; values = expr_list
-      }
-  }
-
-  | var_list = var_declarations_opt ; ASSIGN ; fcall = fun_call (*napisac raz i uzyc dla STMT_Call tez*)
-  { STMT_MultiVarDecl
-      { loc = mkLocation $startpos
-      ; vars = var_list
-      ; init = fcall
-      }
-  }
-
-  | st_block = statement_block
-  { STMT_Block
-    st_block }
+    | st_block = statement_block
+    { STMT_Block
+      st_block }
 
 
 
 (*______________STATEMENT ^^^^_________________________*)
 
+call:
+    | id = identifier ; LEFT_PAR ; args = expression_list ; RIGHT_PAR
+    { Call 
+        { tag = mkTag ()
+        ; loc = mkLocation $startpos
+        ; callee = id
+        ; arguments = args
+        }
+    }
 
-var_declarations_opt:
-  | [] 
-  { None }
-  | var_list 
-  { Some var_list }
+var_decl_opt:
+    | tail = var_decl_opt ; COMMA ; x = var_declaration
+    { (Some x)::tail }
+    | tail = var_decl_opt ; COMMA ; UNDERSCORE
+    { (None)::tail }
+    | 
+    { [] }
 
-fun_call: 
 
 expression:
 
@@ -226,7 +220,7 @@ expression:
   { EXPR_Char 
       { tag = mkTag ()
       ; loc = mkLocation $startpos
-      ; value = c
+      ; value = c[1]
       }
   }  
 
@@ -238,7 +232,7 @@ expression:
       }
   }
 
-  | e1 = expression ; RELOP as op ; e2 = expression
+  | e1 = expression ; op = relop ; e2 = expression
   { EXPR_Relation
       { tag = mkTag ()
       ; loc = mkLocation $startpos
@@ -248,10 +242,16 @@ expression:
       }
   }
 
+relop:
+    | RELOP
+    { $1 }
 
 
-
-else_option: ...
+else_option:
+    | ELSE ; s = statement
+    { Some s }
+    | 
+    { None }
 
 var_decl_assing:
   | ASSIGN ; e = expression
@@ -259,7 +259,9 @@ var_decl_assing:
   | 
   { None }
 
-expression_list: ...
+expression_list:
+    | l = separated_list(COMMA, expression)
+    { l }
 
 
 
@@ -280,12 +282,12 @@ var_declaration:
   }
 
 type_expression:
-  | INT 
+  | INT_T
   {
     TEXPR_Int
     { loc = mkLocation $startpos }
   }
-  | BOOL 
+  | BOOL_T 
   {
     TEXPR_Bool
     { loc = mkLocation $startpos }
@@ -309,15 +311,15 @@ dim_size:
 
 string_expr:
   | STRING
-  { string $1}
+  { string $1 }
 
 char_expr:
   | CHAR
-  { char.t $1 }
+  { Char.t $1 }
 
 int_expr: 
   | INT
-  { int32.t $1 } (*????*)
+  { Int32.t $1 } (*????*)
 
 identifier:
     | IDENTIFIER

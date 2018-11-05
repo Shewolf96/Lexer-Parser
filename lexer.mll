@@ -38,8 +38,7 @@
   let number = digit | ['1' - '9'] digit*
   let char = '\'' _ '\''
   (* tu ^ dodac jakos te \n i inne "znaki" *)
-  let string = ???
-
+  let string = '"' [^ '"' '\\' ] '"'
   let identifier    = ['a'-'z' '_' 'A' - 'Z']['_' 'A' - 'Z' 'a'-'z' '0'-'9']*
 
   
@@ -63,8 +62,8 @@
 
       | whitespace { token lexbuf }
 
-      | "int" { INT }
-      | "bool" { BOOL }
+      | "int" { INT_T }
+      | "bool" { BOOL_T }
       | "while" { WHILE }
       | "if" { IF }
       | "else" { ELSE }
@@ -95,10 +94,13 @@
       { CHAR c }
       
       | number as num
-      { INT num }
+      { INT (Int32.of_string num) }
       
       | identifier as id
       { IDENTIFIER id }
+
+      | string as str
+      { STRING str }
 
       (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
          ----------------------------------------------------------------------------- *)
