@@ -32,7 +32,7 @@ let mkTag =
 %token EOF
 %token <string>IDENTIFIER
 %token LEFT_PAR RIGHT_PAR LEFT_SQUARE RIGHT_SQUARE LEFT_BRA RIGHT_BRA
-%token COLON COMMA
+%token COLON COMMA SEMICOL
 %token INT_T BOOL_T
 %token <Int32.t> INT
 %token <string>CHAR
@@ -81,17 +81,14 @@ global_declaration:
 (*____________________v_________________________*)
 (*____________________v_________________________*)
 
-type_list:
-    | l = rev_type_list
-    { List.rev l }
 
-rev_type_list:
-    | tail = rev_type_list ; COMMA ; x = type_expression (*separated_list(COMMA, type_expression)*)
-    { x::tail }
-    | x = type_expression
-    { [x] }
+
+type_list:
     |
     { [] }
+    | COLON ; l = separated_list (COMMA, type_expression)
+    { l }
+
 
 
 body_option:
@@ -124,7 +121,7 @@ statement:
     | c = call
     { STMT_Call c }
 
-    | id = identifier ; ASSIGN ; expr = expression
+    | id = lvalue_id ; ASSIGN ; expr = expression
     { STMT_Assign
         { loc = mkLocation $startpos
         ; lhs = id
@@ -179,6 +176,16 @@ statement:
 
 (*______________STATEMENT ^^^^_________________________*)
 
+
+lvalue_id:
+    | id = identifier 
+    { LVALUE_Id
+        { loc =mkLocation $startpos
+        ; id = id
+        }
+    }
+
+
 call:
     | id = identifier ; LEFT_PAR ; args = expression_list ; RIGHT_PAR
     { Call 
@@ -220,7 +227,7 @@ expression:
   { EXPR_Char 
       { tag = mkTag ()
       ; loc = mkLocation $startpos
-      ; value = c[1]
+      ; value = c.[1]
       }
   }  
 
@@ -243,8 +250,10 @@ expression:
   }
 
 relop:
-    | RELOP
-    { $1 }
+    | RELOP 
+    { RELOP_Eq }
+    (*{ match $1 with
+      | "xd" }*)
 
 
 else_option:
@@ -302,8 +311,8 @@ type_expression:
   }
 
 dim_size:
-  | num = int_expr
-  { Some num }
+  | e = expression
+  { Some e }
   |
   { None }
 
@@ -311,15 +320,15 @@ dim_size:
 
 string_expr:
   | STRING
-  { string $1 }
+  { $1 }
 
 char_expr:
   | CHAR
-  { Char.t $1 }
+  { $1 }
 
 int_expr: 
   | INT
-  { Int32.t $1 } (*????*)
+  { $1 }
 
 identifier:
     | IDENTIFIER

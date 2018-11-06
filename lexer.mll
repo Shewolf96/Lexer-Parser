@@ -35,10 +35,10 @@
   let binop = '+' | '-' | '/' | '&' | '|' | '%'
   let unop = '-' | '!'
   let digit = ['0' - '9']
-  let number = digit | ['1' - '9'] digit*
+  let number = digit+
   let char = '\'' _ '\''
   (* tu ^ dodac jakos te \n i inne "znaki" *)
-  let string = '"' [^ '"' '\\' ] '"'
+  let string_ = '"' [^ '"' '\\' ] '"'
   let identifier    = ['a'-'z' '_' 'A' - 'Z']['_' 'A' - 'Z' 'a'-'z' '0'-'9']*
 
   
@@ -88,6 +88,7 @@
       | ")" { RIGHT_PAR }
 
       | ":" { COLON }
+      | ";" { SEMICOL }
       | "," { COMMA }
 
       | char as c
@@ -99,7 +100,7 @@
       | identifier as id
       { IDENTIFIER id }
 
-      | string as str
+      | string_ as str
       { STRING str }
 
       (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
