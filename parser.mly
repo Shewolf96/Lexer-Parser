@@ -20,6 +20,8 @@ let mkTag =
  * Miejsce na twój kod w Ocamlu
  *)
 
+let failwith err = raise (Failure err)
+
 (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    ----------------------------------------------------------------------------- *)
 
@@ -34,16 +36,22 @@ let mkTag =
 %token LEFT_PAR RIGHT_PAR LEFT_SQUARE RIGHT_SQUARE LEFT_BRA RIGHT_BRA
 %token COLON COMMA SEMICOL
 %token INT_T BOOL_T
+%token <bool> BOOL
 %token <Int32.t> INT
-%token <string>CHAR
+%token <Char.t>CHAR
 %token IF ELSE WHILE
-%token <Char.t>BINOP 
 %token <string>RELOP 
 %token <Char.t>UNOP
-%token ASSIGN
+%token ASSIGN LEN
 %token RET
 %token <string>STRING
 %token UNDERSCORE
+%token AND OR PLUS MINUS MOD DIV MULT
+
+%left AND OR
+%left PLUS MINUS MOD
+%left DIV MULT
+
 
 (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    ----------------------------------------------------------------------------- *)
@@ -196,14 +204,16 @@ call:
         }
     }
 
-var_decl_opt:
-    | tail = var_decl_opt ; COMMA ; x = var_declaration
-    { (Some x)::tail }
-    | tail = var_decl_opt ; COMMA ; UNDERSCORE
-    { (None)::tail }
-    | 
-    { [] }
 
+var_decl_opt:
+   | l = separated_list (COMMA, var_opt)
+   { l }
+
+var_opt:
+  | x = var_declaration
+  { Some x }
+  | UNDERSCORE
+  { None } 
 
 expression:
 
@@ -227,7 +237,7 @@ expression:
   { EXPR_Char 
       { tag = mkTag ()
       ; loc = mkLocation $startpos
-      ; value = c.[1]
+      ; value = c
       }
   }  
 
@@ -236,6 +246,14 @@ expression:
       { tag = mkTag ()
       ; loc = mkLocation $startpos
       ; value = s
+      }
+  }
+
+  | t = bool_expr
+  { EXPR_Bool
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; value = t
       }
   }
 
@@ -249,11 +267,79 @@ expression:
       }
   }
 
+  | lexp = expression ; op = binop ; rexp = expression
+  { EXPR_Binop
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; op = op
+      ; lhs = lexp
+      ; rhs = rexp
+      }
+  }
+
+  | LEN ; LEFT_PAR ; arg = expression ; RIGHT_PAR
+  { EXPR_Length
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; arg = arg
+      }
+  }
+
+  | op = unop ; e = expression
+  { EXPR_Unop
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; op = op
+      ; sub = e
+      }
+  }
+
+  | LEFT_PAR ; e = expression ; RIGHT_PAR
+  { e }
+
+  | c = call
+    { EXPR_Call c }
+
+  | e = expression ; LEFT_SQUARE ; i = expression ; RIGHT_SQUARE
+  { EXPR_Index
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; expr = e
+      ; index = i
+      }
+  }
+
+  | LEFT_BRA ; exp_list = expression_list ; RIGHT_BRA
+  { EXPR_Struct
+      { tag = mkTag ()
+      ; loc = mkLocation $startpos
+      ; elements = exp_list
+      }
+   }
+
+
 relop:
     | RELOP 
     { RELOP_Eq }
     (*{ match $1 with
       | "xd" }*)
+
+unop:
+  | UNOP 
+  { match $1 with 
+      | '!' -> UNOP_Not
+      | '-' -> UNOP_Neg
+      |_ -> failwith "token error"
+  }
+
+binop:
+    | AND { BINOP_And }
+    | OR { BINOP_Or }
+    | PLUS { BINOP_Add }
+    | MINUS { BINOP_Sub }
+    | MULT { BINOP_Mult }
+    | DIV { BINOP_Div }
+    | MOD { BINOP_Rem }
 
 
 else_option:
@@ -330,9 +416,13 @@ int_expr:
   | INT
   { $1 }
 
+bool_expr:
+  | BOOL
+  { $1 }
+
 identifier:
-    | IDENTIFIER
-    { Identifier $1 }
+  | IDENTIFIER
+  { Identifier $1 }
 
 
 

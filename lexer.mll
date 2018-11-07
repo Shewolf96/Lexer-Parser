@@ -32,13 +32,10 @@
 
   let whitespace = [' ' '\t']+
   let relop = "<=" | ">=" | '<' | '>' | "==" | "!="
-  let binop = '+' | '-' | '/' | '&' | '|' | '%'
   let unop = '-' | '!'
   let digit = ['0' - '9']
   let number = digit+
-  let char = '\'' _ '\''
-  (* tu ^ dodac jakos te \n i inne "znaki" *)
-  let string_ = '"' [^ '"' '\\' ] '"'
+  let bool = "true" | "false"
   let identifier    = ['a'-'z' '_' 'A' - 'Z']['_' 'A' - 'Z' 'a'-'z' '0'-'9']*
 
   
@@ -62,24 +59,39 @@
 
       | whitespace { token lexbuf }
 
+      | '"' { read_string (Buffer.create 0) lexbuf }
+
       | "int" { INT_T }
       | "bool" { BOOL_T }
       | "while" { WHILE }
       | "if" { IF }
       | "else" { ELSE }
+      | "return" { RET }
+      | "length" { LEN }
+
 
       | relop as rop
       { RELOP rop }
 
-      | binop as bop
-      { BINOP bop }
+      | '+' { PLUS }
+      | '-' { MINUS }
+      | '/' { DIV }
+      | '&' { AND }
+      | '|' { OR }
+      | '%' { MOD }
+      | '*' { MULT }
+
 
 (* hmmm  gdzies tu jakis stan pomocniczy bo trzeba odroznic -x od x - y :| *)
       | unop as uop 
       { UNOP uop }
 
-      | "[" {LEFT_SQUARE}
-      | "]" {RIGHT_SQUARE}
+      | "_" { UNDERSCORE }
+
+      | "=" { ASSIGN }
+
+      | "[" { LEFT_SQUARE }
+      | "]" { RIGHT_SQUARE }
 
       | "{" { LEFT_BRA}
       | "}" { RIGHT_BRA}
@@ -91,8 +103,10 @@
       | ";" { SEMICOL }
       | "," { COMMA }
 
-      | char as c
-      { CHAR c }
+      | bool as t
+      { BOOL ( bool_of_string t) }
+
+      | "'" { read_char lexbuf }
       
       | number as num
       { INT (Int32.of_string num) }
@@ -100,8 +114,6 @@
       | identifier as id
       { IDENTIFIER id }
 
-      | string_ as str
-      { STRING str }
 
       (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
          ----------------------------------------------------------------------------- *)
@@ -110,6 +122,33 @@
       { handleError (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme lexbuf) }
 
   (* Pomocniczy stan aby wygodnie i prawidłowo obsłużyć komentarze *)
+
+  and read_string buf = parse
+      | '"'       { STRING (Buffer.contents buf) }
+      | '\\' '/'  { Buffer.add_char buf '/'; read_string buf lexbuf }
+      | '\\' '\\' { Buffer.add_char buf '\\'; read_string buf lexbuf }
+      | '\\' 'b'  { Buffer.add_char buf '\b'; read_string buf lexbuf }
+      | '\\' 'f'  { Buffer.add_char buf '\012'; read_string buf lexbuf }
+      | '\\' 'n'  { Buffer.add_char buf '\n'; read_string buf lexbuf }
+      | '\\' 'r'  { Buffer.add_char buf '\r'; read_string buf lexbuf }
+      | '\\' 't'  { Buffer.add_char buf '\t'; read_string buf lexbuf }
+      | '\\' '\"'  { Buffer.add_char buf '\"'; read_string buf lexbuf }
+      | [^ '"' '\\']+
+        { Buffer.add_string buf (Lexing.lexeme lexbuf);
+          read_string buf lexbuf
+        }
+
+  and read_char = parse
+      | '\\' '/' "'" { CHAR '/'}
+      | '\\' '\\' "'" { CHAR '\\'}
+      | '\\' 'b' "'" { CHAR '\b' }
+      | '\\' 'f' "'" { CHAR '\012' }
+      | '\\' 'n' "'" { CHAR '\n' }
+      | '\\' 'r' "'" { CHAR '\r' }
+      | '\\' 't' "'" { CHAR '\t' }
+      | '\\' '\"' "'" { CHAR '\"' }
+      | [^ '"' '\\'] as c "'" { CHAR c }
+
   and line_comment = parse
       | '\n' 
       { new_line lexbuf; token lexbuf }
