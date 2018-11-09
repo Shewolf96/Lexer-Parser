@@ -16,6 +16,7 @@ let mkTag =
         incr i;
         NodeTag tag
 
+
 (* vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv 
  * Miejsce na twój kod w Ocamlu
  *)
@@ -48,9 +49,10 @@ let failwith err = raise (Failure err)
 %token UNDERSCORE
 %token AND OR PLUS MINUS MOD DIV MULT
 
-%left AND OR
-%left PLUS MINUS MOD
-%left DIV MULT
+%left OR
+%left AND
+%left PLUS MINUS 
+%left DIV MULT MOD
 
 
 (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -112,7 +114,12 @@ statement_block:
       ; body = statement_list
       }
   }
-  
+
+statement_list:
+    | l = list(statement)
+    { l }
+
+(*  
 statement_list:
     | l = rev_statement_list
     { List.rev l }
@@ -121,11 +128,16 @@ rev_statement_list:
   | tail = rev_statement_list ; x = statement
   { x::tail }
   |
-  { [] } (* statement list - trzeba gdzies tam sprawdzac czy return byl na koncu *)
+  { [] } *) (* statement list - trzeba gdzies tam sprawdzac czy return byl na koncu? *)
 
 (*________________STATEMENT__vvvv________________________*)
 
+
 statement:
+
+    | s = statement ; SEMICOL
+    { s }	
+
     | c = call
     { STMT_Call c }
 
@@ -186,6 +198,15 @@ statement:
 
 
 lvalue_id:
+
+    | e = expression ; LEFT_SQUARE ; i = expression ; RIGHT_SQUARE
+    { LVALUE_Index
+        { loc = mkLocation $startpos
+        ; sub = e
+        ; index = i
+        }
+    }
+
     | id = identifier 
     { LVALUE_Id
         { loc =mkLocation $startpos
@@ -320,9 +341,15 @@ expression:
 
 relop:
     | RELOP 
-    { RELOP_Eq }
-    (*{ match $1 with
-      | "xd" }*)
+    { match $1 with
+      | "<=" -> RELOP_Le
+      | ">=" -> RELOP_Ge
+      | "<" -> RELOP_Lt
+      | ">" -> RELOP_Gt
+      | "==" -> RELOP_Eq
+      | "!=" -> RELOP_Ne
+      |_ -> failwith "token error"
+    }
 
 unop:
   | UNOP 

@@ -81,10 +81,9 @@
       | '%' { MOD }
       | '*' { MULT }
 
-
-(* hmmm  gdzies tu jakis stan pomocniczy bo trzeba odroznic -x od x - y :| *)
       | unop as uop 
       { UNOP uop }
+
 
       | "_" { UNDERSCORE }
 
@@ -133,6 +132,7 @@
       | '\\' 'r'  { Buffer.add_char buf '\r'; read_string buf lexbuf }
       | '\\' 't'  { Buffer.add_char buf '\t'; read_string buf lexbuf }
       | '\\' '\"'  { Buffer.add_char buf '\"'; read_string buf lexbuf }
+      | '\\' "'"  { Buffer.add_char buf '\''; read_string buf lexbuf }
       | [^ '"' '\\']+
         { Buffer.add_string buf (Lexing.lexeme lexbuf);
           read_string buf lexbuf
@@ -147,6 +147,7 @@
       | '\\' 'r' "'" { CHAR '\r' }
       | '\\' 't' "'" { CHAR '\t' }
       | '\\' '\"' "'" { CHAR '\"' }
+      | '\\' "''" { CHAR '\'' }
       | [^ '"' '\\'] as c "'" { CHAR c }
 
   and line_comment = parse
