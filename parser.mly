@@ -42,17 +42,20 @@ let failwith err = raise (Failure err)
 %token <Char.t>CHAR
 %token IF ELSE WHILE
 %token <string>RELOP 
-%token <Char.t>UNOP
 %token ASSIGN LEN
 %token RET
 %token <string>STRING
 %token UNDERSCORE
-%token AND OR PLUS MINUS MOD DIV MULT
+%token AND OR PLUS MINUS MOD DIV MULT NEG
+
+%nonassoc IF
+%nonassoc ELSE
 
 %left OR
 %left AND
-%left PLUS MINUS 
+%left PLUS MINUS
 %left DIV MULT MOD
+
 
 
 (* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -352,21 +355,27 @@ relop:
     }
 
 unop:
-  | UNOP 
-  { match $1 with 
-      | '!' -> UNOP_Not
-      | '-' -> UNOP_Neg
-      |_ -> failwith "token error"
-  }
+  | NEG { UNOP_Not }
+  | MINUS { UNOP_Neg }
 
 binop:
-    | AND { BINOP_And }
-    | OR { BINOP_Or }
     | PLUS { BINOP_Add }
     | MINUS { BINOP_Sub }
+    | op = binop2 { op }
+
+binop2:
     | MULT { BINOP_Mult }
     | DIV { BINOP_Div }
     | MOD { BINOP_Rem }
+    | op = binop3 { op }
+
+binop3:
+    | OR { BINOP_Or }
+    | op = binop4 { op } 
+
+binop4:
+    | AND { BINOP_And }
+
 
 
 else_option:

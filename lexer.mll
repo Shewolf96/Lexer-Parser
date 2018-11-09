@@ -32,7 +32,6 @@
 
   let whitespace = [' ' '\t']+
   let relop = "<=" | ">=" | '<' | '>' | "==" | "!="
-  let unop = '-' | '!'
   let digit = ['0' - '9']
   let number = digit+
   let bool = "true" | "false"
@@ -80,9 +79,7 @@
       | '|' { OR }
       | '%' { MOD }
       | '*' { MULT }
-
-      | unop as uop 
-      { UNOP uop }
+      | '!' { NEG }
 
 
       | "_" { UNDERSCORE }
